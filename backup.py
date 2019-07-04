@@ -60,14 +60,14 @@ excludelist="/home/max/.backup/excludelist.txt"
 
 def init():
 	global logmaster
+	import os.path
 	if (os.path.isfile(logmaster)):
 		os.remove(logmaster)
 	log(logmaster,"Backup starting",True)
-	import os.path
 	home = expanduser("~")	
 	onofffile = str(home+"/.backup/OnOffStatus.txt")
 	if (os.path.isfile(onofffile)):
-		content = [line.rstrip('\n') for line in open()]
+		content = [line.rstrip('\n') for line in open(onofffile)]
 		if content[0] == "off":
 			log(logmaster,onofffile+" contains off. Backup process is aborted",True)
 			sys.exit(0)
@@ -114,6 +114,9 @@ def getMonthlyOrDaily(lastedate):
 
 def AddTodayAsSaveDate(diskname):
 	backupdatelistpath=getPathToDisk(diskname)+"/Backup/backup_date_list.txt"
+	if (not os.path.isfile(backupdatelistpath)):
+		with codecs.open(backupdatelistpath, 'w', encoding ='utf_8' ) as file:		#use a instead of w to append a+ to append/create w+ for write/create
+			file.write("Liste of Backup date")
 	with codecs.open(backupdatelistpath, 'a', encoding ='utf_8' ) as file:		#use a instead of w to append
 		now = datetime.datetime.now()
 		file.write("\n"+now.strftime("%d_%m_%Y"))
@@ -135,7 +138,7 @@ def BackupOnADisk(diskname,argstrategy):
 	log(logmaster,"Harddrive "+diskname+" is mounted",True)
 	lastedate=getLastBackupDate(diskname)
 	strategy=getMonthlyOrDaily(lastedate)
-	strategy="daily" if argstrategy=="daily" else strategy
+	strategy="daily" if argstrategy=="dailyonly" else strategy
 	log(logmaster,str("We have found the last month of backup: "+lastedate+". We will perform a "+strategy+" backup"),True)
 	target=getTarget(diskname,strategy)
 	source=getSource()

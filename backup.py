@@ -4,7 +4,8 @@ import codecs
 import getpass
 import os
 import sys
-import socket
+#import socket
+import platform
 import subprocess
 from os.path import expanduser
 import sys, getopt
@@ -54,27 +55,39 @@ class bcolors:
 	Achtung=LightRed+Bold+Blink
 	Error=LightRed+Bold
 
-logmaster=expanduser("~")+"/.backup/MASTER.txt"
+
+param=dict()
 rsyncoptions="--delete --delete-before --update --progress -t -a -r -v -E -h"
-excludelist="/home/max/.backup/excludelist.txt"
+
+
+def SetPlatformDependentParameter():
+	param['logmaster']=os.path.join(expanduser("~"),".backup","MASTER.txt")
+	param['excludelist']=os.path.join(expanduser("~"),".backup","excludelist.txt")
+	param['filepath']=os.path.join(expanduser("~"),".backup","harddrives.txt")
+	if os.name=='nt':
+		pass
+	else:
+		pass
+		#linux
 
 def init():
+	SetPlatformDependentParameter()
 	global logmaster
 	import os.path
 	if (os.path.isfile(logmaster)):
 		os.remove(logmaster)
-	log(logmaster,"Backup starting",True)
+	log(param['logmaster'],"Backup starting",True)
 	home = expanduser("~")	
 	onofffile = str(home+"/.backup/OnOffStatus.txt")
 	if (os.path.isfile(onofffile)):
 		content = [line.rstrip('\n') for line in open(onofffile)]
 		if content[0] == "off":
-			log(logmaster,onofffile+" contains off. Backup process is aborted",True)
+			log(param['logmaster'],onofffile+" contains off. Backup process is aborted",True)
 			sys.exit(0)
 		else:
-			log(logmaster,onofffile+" contains on. Backup process goes on",True)
+			log(param['logmaster'],onofffile+" contains on. Backup process goes on",True)
 	else:
-		log(logmaster,onofffile+" not found. Assuming backup process is wished. Process goes on",True)
+		log(param['logmaster'],onofffile+" not found. Assuming backup process is wished. Process goes on",True)
 
 def getDate():
 	now = datetime.datetime.now()
@@ -92,10 +105,13 @@ def log(logfile,string,printinstd):
 		print(string)
 				
 def getPathToDisk(diskname):
-	return (str("/media/"+getpass.getuser()+"/"+diskname))
+	if os.name=='nt':
+		return diskname
+	else:
+		return (str("/media/"+getpass.getuser()+"/"+diskname))
 
 def getLastBackupDate(diskname):
-	backupdatelistpath=getPathToDisk(diskname)+"/Backup/backup_date_list.txt"
+	backupdatelistpath=os.path.join(getPathToDisk(diskname),"Backup","backup_date_list.txt")
 	if (os.path.isfile(backupdatelistpath)):
 		with open(backupdatelistpath) as f:
 			content = [line.rstrip('\n') for line in open(backupdatelistpath)]	#while this approach does not
@@ -122,47 +138,50 @@ def AddTodayAsSaveDate(diskname):
 		file.write("\n"+now.strftime("%d_%m_%Y"))
 
 def getTarget(diskname,strategy):
-	return(getPathToDisk(diskname)+"/Backup/"+socket.gethostname()+"/"+strategy)
+	return os.path.join(getPathToDisk(diskname),"Backup",platform.node(),strategy)
 
 def getSource():
 	return (expanduser("~"))
 
+def LaunchCopyCommand(source,target):
+	if os.name=="nt":
+
+		pass
+	else:
+		rsyncarg=rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target
+		rsyncarglist=rsyncarg.split(" ")
+		spc=subprocess.Popen(["rsync"] + rsyncarglist,stdout=subprocess.PIPE)
+		#stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL if you want to ignore every output
+		out,err=spc.communicate()	#catch stdout and stderr
+		outstr=out.decode(sys.stdout.encoding)	#out is a bytstring i.e 'b'blalbal\n'  while outstr now soleley contains blablala
+		spc.wait()			#Wait until end (remove if you want parrall exec
+		log(param['logmaster'],"rsync return code "+str(spc.returncode),True)
+		log(param['logmaster'],"Will add the date to the backup date list",True)
+
+
 def BackupOnADisk(diskname,argstrategy):
-	global logmaster
 	global rsyncoptions
-	global excludelist
-	log(logmaster,"Will check if "+getPathToDisk(diskname),True)
+	log(param['logmaster'],"Will check if "+getPathToDisk(diskname),True)
 	if(os.path.ismount(getPathToDisk(diskname))==False):
-		log(logmaster,"Harddrive "+diskname+" is not mounted",True)
+		log(param['logmaster'],"Harddrive "+diskname+" is not mounted",True)
 		return 
-	log(logmaster,"Harddrive "+diskname+" is mounted",True)
+	log(param['logmaster'],"Harddrive "+diskname+" is mounted",True)
 	lastedate=getLastBackupDate(diskname)
 	strategy=getMonthlyOrDaily(lastedate)
 	strategy="daily" if argstrategy=="dailyonly" else strategy
-	log(logmaster,str("We have found the last month of backup: "+lastedate+". We will perform a "+strategy+" backup"),True)
+	log(param['logmaster'],str("We have found the last month of backup: "+lastedate+". We will perform a "+strategy+" backup"),True)
 	target=getTarget(diskname,strategy)
 	source=getSource()
 	if (os.path.isdir(target)==False):
 		os.makedirs(target)
-	log(logmaster,"We will issue following command:\nrsync "+rsyncoptions+" --exclude "+excludelist+" "+source+" "+target,True)
-	rsyncarg=rsyncoptions+" --exclude "+excludelist+" "+source+" "+target
-	rsyncarglist=rsyncarg.split(" ")
-	
-	spc=subprocess.Popen(["rsync"] + rsyncarglist,stdout=subprocess.PIPE)
-	#stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL if you want to ignore every output
-	out,err=spc.communicate()	#catch stdout and stderr
-	outstr=out.decode(sys.stdout.encoding)	#out is a bytstring i.e 'b'blalbal\n'  while outstr now soleley contains blablala
-	spc.wait()			#Wait until end (remove if you want parrall exec
-	log(logmaster,"rsync return code "+str(spc.returncode),True)
-	log(logmaster,"Will add the date to the backup date list",True)
+	log(param['logmaster'],"We will issue following command:\nrsync "+rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target,True)
+	LaunchCopyCommand(source,target)
 	AddTodayAsSaveDate(diskname)
 	
 	
 def getListOfHarddriveToBackup():
-	filepath=expanduser("~")
-	filepath+="/.backup/harddrives.txt"
-	with open(filepath) as f:  #This conserve the \n at en of lines
-		return [line.rstrip('\n') for line in open(filepath)]
+	with open(param['filepath']) as f:  #This conserve the \n at en of lines
+		return [line.rstrip('\n') for line in open(param['filepath'])]
 	
 
 
@@ -192,9 +211,13 @@ def CheckAndQuitUponFolderMissing(folderlist,errorcode):
 			print(bcolors.LightRed+"Exit error code "+str(errorcode)+": folder "+folder+" does not exist"+bcolors.NC)
 			sys.exit(errorcode)
 
+
+		
 def main(argv):
 	argstrategy = ''
 	varnameb = ''
+	
+
 	try:
 		opts, args = getopt.getopt(argv,"hs:b:",["errorcode","strategy=","longargb="])
 		

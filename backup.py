@@ -72,10 +72,9 @@ def SetPlatformDependentParameter():
 
 def init():
 	SetPlatformDependentParameter()
-	global logmaster
 	import os.path
-	if (os.path.isfile(logmaster)):
-		os.remove(logmaster)
+	if (os.path.isfile(param['logmaster'])):
+		os.remove(param['logmaster'])
 	log(param['logmaster'],"Backup starting",True)
 	home = expanduser("~")	
 	onofffile = str(home+"/.backup/OnOffStatus.txt")
@@ -98,7 +97,9 @@ def getLogForDrive(drivename):
 	return str(home+"/.backup/"+drivename+gedDate()+".log")
 
 def log(logfile,string,printinstd):
-	with codecs.open(logfile, 'a', encoding ='utf_8' ) as file:		#use a instead of w to append
+	if not os.path.isfile(logfile):
+		os.makedirs(os.path.dirname(logfile), exist_ok=True)
+	with codecs.open(logfile, 'a+', encoding ='utf_8' ) as file:		#use a instead of w to append
 		file.write("["+getDate()+"]"+string)
 		file.write("\n")
 	if printinstd==True:
@@ -106,6 +107,8 @@ def log(logfile,string,printinstd):
 				
 def getPathToDisk(diskname):
 	if os.name=='nt':
+		import win32
+		win32.Geet
 		return diskname
 	else:
 		return (str("/media/"+getpass.getuser()+"/"+diskname))
@@ -145,7 +148,7 @@ def getSource():
 
 def LaunchCopyCommand(source,target):
 	if os.name=="nt":
-
+		log(param['logmaster'],"Rsync command not implemented in Windows so far..",True)
 		pass
 	else:
 		rsyncarg=rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target
@@ -180,8 +183,12 @@ def BackupOnADisk(diskname,argstrategy):
 	
 	
 def getListOfHarddriveToBackup():
-	with open(param['filepath']) as f:  #This conserve the \n at en of lines
-		return [line.rstrip('\n') for line in open(param['filepath'])]
+	try:
+		with open(param['filepath']) as f:  #This conserve the \n at en of lines
+			return [line.rstrip('\n') for line in open(param['filepath'])]
+	except FileNotFoundError :
+		print("Error: File {} not found".format(param['filepath']))
+		sys.exit(1)
 	
 
 
@@ -216,7 +223,7 @@ def CheckAndQuitUponFolderMissing(folderlist,errorcode):
 def main(argv):
 	argstrategy = ''
 	varnameb = ''
-	
+	print("go")
 
 	try:
 		opts, args = getopt.getopt(argv,"hs:b:",["errorcode","strategy=","longargb="])

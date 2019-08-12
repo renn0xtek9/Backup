@@ -10,6 +10,8 @@ import subprocess
 from os.path import expanduser
 import sys, getopt
 
+from windows_disk_analyzer import WindowsDiskAnalyzer,ConvertPathToCygwinPath
+
 class bcolors:
 	NC='\033[0m'
 	Bold='\033[1m'
@@ -107,9 +109,12 @@ def log(logfile,string,printinstd):
 				
 def getPathToDisk(diskname):
 	if os.name=='nt':
-		import win32
-		win32.Geet
-		return diskname
+		wda=WindowsDiskAnalyzer()
+		try:
+			return str(wda.getDictionnaryOfKeyAndDrive()[diskname]+"\\")
+		except Exception as e:
+			print("Could not find disk {} \n{}".format(diskname,e))
+			sys.exit(1)		
 	else:
 		return (str("/media/"+getpass.getuser()+"/"+diskname))
 
@@ -132,7 +137,7 @@ def getMonthlyOrDaily(lastedate):
 		return "daily"
 
 def AddTodayAsSaveDate(diskname):
-	backupdatelistpath=getPathToDisk(diskname)+"/Backup/backup_date_list.txt"
+	backupdatelistpath=os.path.join(getPathToDisk(diskname),"Backup","backup_date_list.txt")
 	if (not os.path.isfile(backupdatelistpath)):
 		with codecs.open(backupdatelistpath, 'w', encoding ='utf_8' ) as file:		#use a instead of w to append a+ to append/create w+ for write/create
 			file.write("Liste of Backup date")
@@ -141,6 +146,8 @@ def AddTodayAsSaveDate(diskname):
 		file.write("\n"+now.strftime("%d_%m_%Y"))
 
 def getTarget(diskname,strategy):
+	string=getPathToDisk(diskname)
+	string=os.path.join(string,"Backup")
 	return os.path.join(getPathToDisk(diskname),"Backup",platform.node(),strategy)
 
 def getSource():
@@ -148,18 +155,21 @@ def getSource():
 
 def LaunchCopyCommand(source,target):
 	if os.name=="nt":
-		log(param['logmaster'],"Rsync command not implemented in Windows so far..",True)
-		pass
+		rsyncpath="C:\\cygwin64\\bin\\rsync.exe"
+		source=ConvertPathToCygwinPath(source)
+		target=ConvertPathToCygwinPath(target)
 	else:
-		rsyncarg=rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target
-		rsyncarglist=rsyncarg.split(" ")
-		spc=subprocess.Popen(["rsync"] + rsyncarglist,stdout=subprocess.PIPE)
-		#stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL if you want to ignore every output
-		out,err=spc.communicate()	#catch stdout and stderr
-		outstr=out.decode(sys.stdout.encoding)	#out is a bytstring i.e 'b'blalbal\n'  while outstr now soleley contains blablala
-		spc.wait()			#Wait until end (remove if you want parrall exec
-		log(param['logmaster'],"rsync return code "+str(spc.returncode),True)
-		log(param['logmaster'],"Will add the date to the backup date list",True)
+		rsyncpath="rsync"
+	rsyncarg=rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target
+	rsyncarglist=rsyncarg.split(" ")
+	log(param['logmaster'],str([rsyncpath] + rsyncarglist),True)
+	spc=subprocess.Popen([rsyncpath] + rsyncarglist,stdout=subprocess.PIPE)
+	#stdout=subprocess.DEVNULL,stderr=subprocess.DEVNULL if you want to ignore every output
+	out,err=spc.communicate()	#catch stdout and stderr
+	outstr=out.decode(sys.stdout.encoding)	#out is a bytstring i.e 'b'blalbal\n'  while outstr now soleley contains blablala
+	spc.wait()			#Wait until end (remove if you want parrall exec
+	log(param['logmaster'],"rsync return code "+str(spc.returncode),True)
+	log(param['logmaster'],"Will add the date to the backup date list",True)
 
 
 def BackupOnADisk(diskname,argstrategy):

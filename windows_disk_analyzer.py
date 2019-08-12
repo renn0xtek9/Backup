@@ -1,5 +1,12 @@
 import re
 import subprocess
+
+def ConvertPathToCygwinPath(path):
+    drive=path.split(':')[0]
+    pathunderdrive=re.sub('\\\\','/',path.split(':')[1])
+    cygpath=str('/cygdrive/{}{}'.format(drive.lower(),pathunderdrive))
+    return cygpath
+
 class WindowsDiskAnalyzer:
     def __init__(self):
         self.content=[""]

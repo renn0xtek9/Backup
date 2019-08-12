@@ -1,0 +1,1 @@
+Start-Process -FilePath "C:\Users\dell\Documents\scriptbackup\Backup\backup.py" -ArgumentList "-s","dailyonly"

@@ -59,16 +59,18 @@ class bcolors:
 
 
 param=dict()
-rsyncoptions="--delete --delete-before --update --progress -t -a -r -v -E -h"
 
 
 def SetPlatformDependentParameter():
 	param['logmaster']=os.path.join(expanduser("~"),".backup","MASTER.txt")
-	param['excludelist']=os.path.join(expanduser("~"),".backup","excludelist.txt")
 	param['filepath']=os.path.join(expanduser("~"),".backup","harddrives.txt")
 	if os.name=='nt':
+		param['excludelist']=ConvertPathToCygwinPath(os.path.join(expanduser("~"),".backup","excludelist.txt"))
+		param['rsyncoptions']="--delete --delete-before --update --progress -t -g -p -o -d -W -r -v -E -h"
 		pass
 	else:
+		param['excludelist']=os.path.join(expanduser("~"),".backup","excludelist.txt")
+		param['rsyncoptions']="--delete --delete-before --update --progress -t -a -r -v -E -h"
 		pass
 		#linux
 
@@ -160,7 +162,7 @@ def LaunchCopyCommand(source,target):
 		target=ConvertPathToCygwinPath(target)
 	else:
 		rsyncpath="rsync"
-	rsyncarg=rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target
+	rsyncarg=param['rsyncoptions']+" --exclude-from="+param['excludelist']+" "+source+" "+target
 	rsyncarglist=rsyncarg.split(" ")
 	log(param['logmaster'],str([rsyncpath] + rsyncarglist),True)
 	spc=subprocess.Popen([rsyncpath] + rsyncarglist,stdout=subprocess.PIPE)
@@ -173,7 +175,6 @@ def LaunchCopyCommand(source,target):
 
 
 def BackupOnADisk(diskname,argstrategy):
-	global rsyncoptions
 	log(param['logmaster'],"Will check if "+getPathToDisk(diskname),True)
 	if(os.path.ismount(getPathToDisk(diskname))==False):
 		log(param['logmaster'],"Harddrive "+diskname+" is not mounted",True)
@@ -187,7 +188,7 @@ def BackupOnADisk(diskname,argstrategy):
 	source=getSource()
 	if (os.path.isdir(target)==False):
 		os.makedirs(target)
-	log(param['logmaster'],"We will issue following command:\nrsync "+rsyncoptions+" --exclude "+param['excludelist']+" "+source+" "+target,True)
+	log(param['logmaster'],"We will issue following command:\nrsync "+param['rsyncoptions']+" --exclude "+param['excludelist']+" "+source+" "+target,True)
 	LaunchCopyCommand(source,target)
 	AddTodayAsSaveDate(diskname)
 	
